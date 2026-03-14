@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Genealógico Notarial</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --sepia:     #f5efe0;
+  --sepia-mid: #e8dcc8;
+  --sepia-dk:  #c9b89a;
+  --ink:       #1a1209;
+  --ink-mid:   #3d2b1a;
+  --ink-lt:    #6b4c2a;
+  --accent:    #8b1a1a;
+  --accent2:   #1a4a6b;
+  --gold:      #b8860b;
+  --green:     #1a5c2a;
+  --shadow:    rgba(26,18,9,.2);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{font-family:'EB Garamond',Georgia,serif;background:#1e1810;color:var(--ink);min-height:100vh;}
+
+/* HEADER */
+header{background:var(--ink);border-bottom:3px solid var(--gold);padding:14px 28px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;}
+.h-logo{font-family:'Playfair Display',serif;font-size:1.35rem;color:var(--sepia);letter-spacing:.03em;}
+.h-logo span{color:var(--gold);}
+.h-sub{font-family:'Courier Prime',monospace;font-size:.65rem;color:var(--sepia-dk);letter-spacing:.14em;text-transform:uppercase;margin-top:1px;}
+.h-actions{margin-left:auto;display:flex;gap:8px;}
+.h-btn{padding:6px 14px;font-family:'Courier Prime',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:1px solid;transition:all .15s;}
+.h-btn.export-xl{color:#1a5c2a;border-color:#1a5c2a;background:transparent;}
+.h-btn.export-xl:hover{background:#1a5c2a;color:white;}
+.h-btn.export-pdf{color:var(--accent);border-color:var(--accent);background:transparent;}
+.h-btn.export-pdf:hover{background:var(--accent);color:white;}
+
+/* LAYOUT */
+.workspace{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 56px);}
+
+/* SIDEBAR */
+.sidebar{background:var(--sepia);border-right:2px solid var(--sepia-dk);display:flex;flex-direction:column;overflow-y:auto;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(180,150,100,.1) 28px);}
+.sb-section{padding:16px 18px;border-bottom:1px solid var(--sepia-dk);}
+.sb-title{font-family:'Courier Prime',monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-lt);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.sb-title::after{content:'';flex:1;height:1px;background:var(--sepia-dk);}
+
+/* Search inputs */
+.inp-group{margin-bottom:8px;}
+.inp-group label{display:block;font-family:'Courier Prime',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-lt);margin-bottom:3px;}
+.inp-group input{width:100%;background:var(--sepia-mid);border:1px solid var(--sepia-dk);border-bottom:2px solid var(--ink-lt);padding:7px 9px;font-family:'EB Garamond',serif;font-size:.95rem;color:var(--ink);outline:none;transition:border-color .2s;}
+.inp-group input:focus{border-bottom-color:var(--accent2);}
+.inp-group input::placeholder{color:var(--sepia-dk);font-style:italic;}
+.btn-full{width:100%;padding:8px;background:var(--ink);color:var(--sepia);border:none;font-family:'Courier Prime',monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:background .2s;margin-top:4px;}
+.btn-full:hover{background:var(--accent2);}
+.btn-full.green:hover{background:var(--green);}
+
+/* PDF Drop Zone */
+.drop-zone{border:2px dashed var(--sepia-dk);padding:16px;text-align:center;cursor:pointer;transition:all .2s;background:var(--sepia-mid);position:relative;}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent2);background:#dde8f0;}
+.drop-zone .dz-icon{font-size:2rem;margin-bottom:6px;opacity:.5;}
+.drop-zone p{font-size:.82rem;color:var(--ink-lt);font-style:italic;line-height:1.5;}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+
+/* Results */
+.result-item{background:var(--sepia-mid);border:1px solid var(--sepia-dk);border-left:3px solid var(--accent2);padding:9px 11px;margin-bottom:6px;cursor:pointer;transition:border-left-color .15s,transform .1s;}
+.result-item:hover{border-left-color:var(--accent);transform:translateX(2px);}
+.ri-name{font-size:.95rem;font-weight:600;color:var(--ink);}
+.ri-rut{font-family:'Courier Prime',monospace;font-size:.72rem;color:var(--ink-lt);}
+.ri-addr{font-size:.78rem;color:var(--ink-lt);font-style:italic;margin-top:1px;}
+
+/* Person chips */
+.person-chip{display:flex;align-items:center;gap:8px;padding:7px 9px;margin-bottom:5px;background:var(--sepia-mid);border:1px solid var(--sepia-dk);cursor:pointer;transition:background .15s;}
+.person-chip:hover{background:#e0d4be;}
+.person-chip.active{border-left:3px solid var(--accent);background:#e8dbbe;}
+.pc-initial{width:26px;height:26px;background:var(--ink-lt);color:var(--sepia);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:.85rem;flex-shrink:0;}
+.pc-info{flex:1;min-width:0;}
+.pc-name{font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-rut{font-family:'Courier Prime',monospace;font-size:.65rem;color:var(--ink-lt);}
+.pc-certs{display:flex;gap:3px;margin-top:2px;}
+.pc-dot{width:6px;height:6px;border-radius:50%;}
+.pc-dot.nac{background:var(--accent2);}
+.pc-dot.mat{background:var(--accent);}
+.pc-dot.def{background:#888;}
+
+/* MAIN */
+.main{display:flex;flex-direction:column;overflow:hidden;}
+.tabs{display:flex;background:var(--ink-mid);border-bottom:2px solid var(--gold);}
+.tab{padding:10px 20px;font-family:'Courier Prime',monospace;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sepia-dk);cursor:pointer;border-right:1px solid rgba(255,255,255,.07);transition:all .15s;}
+.tab:hover{background:rgba(255,255,255,.06);color:var(--sepia);}
+.tab.active{background:var(--sepia);color:var(--ink);font-weight:700;}
+.tab-content{flex:1;overflow:auto;}
+.tab-pane{display:none;min-height:100%;}
+.tab-pane.active{display:block;}
+
+/* FICHA */
+.ficha{padding:24px 28px;background:var(--sepia);min-height:100%;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(180,150,100,.09) 28px);}
+.ficha-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:var(--sepia-dk);gap:10px;}
+.ficha-empty .icon{font-size:2.8rem;opacity:.35;}
+.ficha-empty p{font-style:italic;font-size:.95rem;}
+
+.ficha-hdr{display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;padding-bottom:18px;border-bottom:2px solid var(--sepia-dk);}
+.ficha-avatar{width:58px;height:58px;background:var(--ink);color:var(--sepia);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:1.6rem;flex-shrink:0;border:2px solid var(--ink-lt);}
+.ficha-nombre{font-family:'Playfair Display',serif;font-size:1.45rem;line-height:1.2;color:var(--ink);}
+.ficha-rut{font-family:'Courier Prime',monospace;font-size:.85rem;color:var(--ink-lt);margin-top:2px;}
+.ficha-dir{font-size:.85rem;color:var(--ink-lt);font-style:italic;margin-top:2px;}
+.ficha-rel{font-size:.78rem;color:var(--gold);margin-top:3px;font-family:'Courier Prime',monospace;letter-spacing:.06em;}
+
+.ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.fcard{background:white;border:1px solid var(--sepia-dk);padding:14px;box-shadow:2px 2px 6px var(--shadow);}
+.fcard h4{font-family:'Courier Prime',monospace;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-lt);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--sepia-dk);}
+.fcard.full{grid-column:1/-1;}
+
+/* Cert items */
+.cert-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--sepia-mid);}
+.cert-item:last-of-type{border-bottom:none;}
+.cert-badge{font-family:'Courier Prime',monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;padding:2px 6px;border:1px solid;flex-shrink:0;}
+.cert-badge.nac{color:var(--accent2);border-color:var(--accent2);}
+.cert-badge.mat{color:var(--accent);border-color:var(--accent);}
+.cert-badge.def{color:#666;border-color:#999;}
+.cert-info{flex:1;font-size:.82rem;color:var(--ink-lt);font-style:italic;}
+.cert-del{background:none;border:none;color:#ccc;cursor:pointer;font-size:.8rem;padding:2px 5px;}
+.cert-del:hover{color:var(--accent);}
+
+/* Cert actions */
+.cert-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.cbtn{padding:5px 11px;font-family:'Courier Prime',monospace;font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border:1px solid;background:transparent;transition:all .15s;}
+.cbtn.nac{color:var(--accent2);border-color:var(--accent2);}
+.cbtn.nac:hover{background:var(--accent2);color:white;}
+.cbtn.mat{color:var(--accent);border-color:var(--accent);}
+.cbtn.mat:hover{background:var(--accent);color:white;}
+.cbtn.def{color:#666;border-color:#999;}
+.cbtn.def:hover{background:#666;color:white;}
+
+/* RC links */
+.rc-link{display:block;padding:7px 11px;font-family:'Courier Prime',monospace;font-size:.65rem;letter-spacing:.09em;text-transform:uppercase;text-decoration:none;border:1px solid;margin-bottom:6px;transition:all .15s;}
+.rc-link.nac{color:var(--accent2);border-color:var(--accent2);}
+.rc-link.nac:hover{background:var(--accent2);color:white;}
+.rc-link.mat{color:var(--accent);border-color:var(--accent);}
+.rc-link.mat:hover{background:var(--accent);color:white;}
+.rc-link.def{color:#555;border-color:#999;}
+.rc-link.def:hover{background:#555;color:white;}
+.rc-note{font-size:.78rem;color:var(--ink-lt);font-style:italic;margin-bottom:10px;line-height:1.6;}
+
+/* Notes */
+.notas-area{width:100%;min-height:80px;background:#fffef8;border:1px solid var(--sepia-dk);border-bottom:2px solid var(--ink-lt);padding:9px;font-family:'EB Garamond',serif;font-size:.92rem;color:var(--ink);resize:vertical;outline:none;line-height:1.7;}
+.btn-save-note{margin-top:5px;padding:5px 14px;background:var(--ink);color:var(--sepia);border:none;font-family:'Courier Prime',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;}
+.btn-save-note:hover{background:var(--accent2);}
+
+/* Extracted data badge */
+.extracted-badge{display:inline-block;background:#e8f0e8;border:1px solid #1a5c2a;color:#1a5c2a;padding:2px 7px;font-family:'Courier Prime',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-left:6px;vertical-align:middle;}
+
+/* ÁRBOL */
+.arbol-wrap{background:#1a1408;min-height:100%;padding:28px;overflow:auto;
+  background-image:radial-gradient(ellipse at 50% 30%,#2a2010 0%,#150f06 100%);}
+.arbol-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;gap:12px;color:#5a4a2a;}
+.arbol-empty .icon{font-size:3rem;opacity:.4;}
+
+/* Tree */
+.tree{display:flex;flex-direction:column;align-items:center;gap:0;min-width:800px;}
+.tree-level{display:flex;justify-content:center;align-items:flex-start;gap:16px;position:relative;padding:0 40px;}
+.tree-level-lbl{position:absolute;left:4px;top:50%;writing-mode:vertical-rl;transform:rotate(180deg) translateY(50%);font-family:'Courier Prime',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:#4a3820;white-space:nowrap;}
+.tree-connector{height:28px;width:100%;display:flex;justify-content:center;position:relative;}
+.tree-connector::before{content:'';position:absolute;left:50%;top:0;width:1px;height:100%;background:#3a2a12;}
+.tree-h-line{height:1px;background:#3a2a12;align-self:center;min-width:12px;flex:1;position:relative;top:-14px;}
+
+.nodo{background:linear-gradient(135deg,#242010 0%,#1a1408 100%);border:1.5px solid #4a3820;padding:11px 14px;min-width:150px;max-width:180px;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
+.nodo:hover{border-color:var(--gold);box-shadow:0 0 14px rgba(184,134,11,.35);}
+.nodo.sel{border-color:var(--gold);box-shadow:0 0 18px rgba(184,134,11,.5);}
+.nodo.raiz{border-color:var(--accent);border-width:2px;}
+.nodo.raiz::before{content:'RAÍZ';position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;font-family:'Courier Prime',monospace;font-size:.54rem;letter-spacing:.1em;padding:1px 6px;}
+.nodo-nom{font-family:'Playfair Display',serif;font-size:.84rem;color:#e8d8b8;line-height:1.3;margin-bottom:3px;}
+.nodo-rut{font-family:'Courier Prime',monospace;font-size:.6rem;color:#6a5a38;}
+.nodo-rel{font-size:.62rem;color:var(--gold);font-style:italic;margin-top:2px;font-family:'EB Garamond',serif;}
+.nodo-dots{display:flex;gap:3px;justify-content:center;margin-top:5px;flex-wrap:wrap;}
+.ndot{width:7px;height:7px;border-radius:50%;}
+.ndot.nac{background:var(--accent2);}
+.ndot.mat{background:var(--accent);}
+.ndot.def{background:#666;}
+.ndot.ext{background:var(--green);}
+
+.nodo-add{background:transparent;border:1.5px dashed #3a2a12;padding:9px 12px;min-width:130px;text-align:center;cursor:pointer;transition:all .2s;font-family:'EB Garamond',serif;font-size:.78rem;color:#4a3820;font-style:italic;}
+.nodo-add:hover{border-color:#6a5a32;color:#8a7a52;}
+
+.tree-legend{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-top:22px;}
+.tleg{display:flex;align-items:center;gap:5px;font-family:'Courier Prime',monospace;font-size:.6rem;color:#6a5a38;letter-spacing:.08em;}
+.tleg-dot{width:9px;height:9px;border-radius:50%;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.68);display:none;align-items:center;justify-content:center;z-index:100;}
+.overlay.open{display:flex;}
+.modal{background:var(--sepia);border:1px solid var(--sepia-dk);border-top:3px solid var(--accent);padding:24px 26px 20px;width:500px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.55);
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(180,150,100,.09) 28px);}
+.modal h3{font-family:'Playfair Display',serif;font-size:1.1rem;margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid var(--sepia-dk);}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.mfield{display:flex;flex-direction:column;gap:3px;}
+.mfield.full{grid-column:1/-1;}
+.mfield label{font-family:'Courier Prime',monospace;font-size:.63rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-lt);}
+.mfield input,.mfield select{background:var(--sepia-mid);border:1px solid var(--sepia-dk);border-bottom:2px solid var(--ink-lt);padding:6px 8px;font-family:'EB Garamond',serif;font-size:.92rem;color:var(--ink);outline:none;}
+.mactions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;}
+.mbtn{padding:7px 16px;font-family:'Courier Prime',monospace;font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;border:1px solid;}
+.mbtn.pri{background:var(--ink);color:var(--sepia);border-color:var(--ink);}
+.mbtn.pri:hover{background:var(--accent2);border-color:var(--accent2);}
+.mbtn.sec{background:transparent;color:var(--ink-lt);border-color:var(--sepia-dk);}
+.mbtn.sec:hover{background:var(--sepia-dk);}
+
+/* Processing modal */
+.proc-modal{background:var(--sepia);border:1px solid var(--sepia-dk);border-top:3px solid var(--green);padding:28px;width:440px;max-width:95vw;text-align:center;}
+.proc-modal h3{font-family:'Playfair Display',serif;font-size:1.1rem;margin-bottom:12px;}
+.proc-modal p{font-size:.88rem;color:var(--ink-lt);font-style:italic;margin-bottom:16px;line-height:1.6;}
+.proc-spinner{width:36px;height:36px;border:3px solid var(--sepia-dk);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-log{background:#f8f4ec;border:1px solid var(--sepia-dk);padding:10px;max-height:120px;overflow-y:auto;text-align:left;font-family:'Courier Prime',monospace;font-size:.68rem;color:var(--ink-lt);line-height:1.8;}
+
+/* Extracted preview */
+.extracted-preview{background:#f0f6f0;border:1px solid #1a5c2a;padding:14px;margin-top:10px;}
+.extracted-preview h4{font-family:'Courier Prime',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:#1a5c2a;margin-bottom:10px;}
+.ep-field{display:flex;gap:8px;margin-bottom:5px;font-size:.85rem;}
+.ep-label{font-family:'Courier Prime',monospace;font-size:.65rem;text-transform:uppercase;color:#1a5c2a;min-width:100px;flex-shrink:0;}
+.ep-val{color:var(--ink);}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:var(--sepia);padding:9px 16px;font-family:'Courier Prime',monospace;font-size:.7rem;letter-spacing:.07em;border-left:3px solid var(--gold);opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;z-index:200;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* Spinner inline */
+.spin-inline{display:inline-block;width:12px;height:12px;border:2px solid var(--sepia-dk);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
+
+.empty-msg{color:var(--ink-lt);font-style:italic;font-size:.85rem;text-align:center;padding:12px 0;}
+
+@media(max-width:760px){
+  .workspace{grid-template-columns:1fr;}
+  .ficha-grid{grid-template-columns:1fr;}
+}
+</style>
+<script>
+  // URL del backend en Render — se reemplaza automáticamente
+  window.API_BASE = "%%RENDER_URL%%";
+</script>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="h-logo">Registro <span>Genealógico</span> Notarial</div>
+    <div class="h-sub">Índice · Certificados · Historia familiar</div>
+  </div>
+  <div class="h-actions">
+    <button class="h-btn export-xl" onclick="exportarExcel()">⬇ Excel</button>
+    <button class="h-btn export-pdf" onclick="exportarPDF()">⬇ PDF Árbol</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+
+  <!-- Búsqueda Rutify -->
+  <div class="sb-section">
+    <div class="sb-title">Búsqueda Rutify</div>
+    <div class="inp-group">
+      <label>Nombre o Apellido</label>
+      <input type="text" id="inp-nombre" placeholder="Ej: Juan Pérez" onkeydown="if(event.key==='Enter')buscar()">
+    </div>
+    <div class="inp-group">
+      <label>RUT</label>
+      <input type="text" id="inp-rut" placeholder="Ej: 12345678-9" onkeydown="if(event.key==='Enter')buscar()">
+    </div>
+    <button class="btn-full" onclick="buscar()"><span id="btn-txt">⌕ Buscar</span></button>
+    <div id="search-results" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Subir PDF -->
+  <div class="sb-section">
+    <div class="sb-title">Subir Certificado PDF</div>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" accept=".pdf" multiple onchange="procesarPDFs(this.files)">
+      <div class="dz-icon">📄</div>
+      <p>Arrastra aquí tus certificados PDF<br><small>Nacimiento · Matrimonio · Defunción</small></p>
+    </div>
+  </div>
+
+  <!-- Personas registradas -->
+  <div class="sb-section" style="flex:1;">
+    <div class="sb-title">Personas Registradas (<span id="count">0</span>)</div>
+    <div id="personas-list">
+      <div class="empty-msg">Ninguna aún.</div>
+    </div>
+    <button class="btn-full" style="margin-top:10px;" onclick="abrirModalAgregar()">+ Agregar manualmente</button>
+  </div>
+
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+  <div class="tabs">
+    <div class="tab active" data-tab="ficha">📄 Ficha Personal</div>
+    <div class="tab" data-tab="arbol">🌿 Árbol Genealógico</div>
+  </div>
+  <div class="tab-content">
+
+    <!-- FICHA -->
+    <div class="tab-pane active" id="tab-ficha">
+      <div class="ficha" id="ficha-wrap">
+        <div class="ficha-empty">
+          <div class="icon">📜</div>
+          <p>Selecciona o busca una persona para ver su ficha</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÁRBOL -->
+    <div class="tab-pane" id="tab-arbol">
+      <div class="arbol-wrap" id="arbol-wrap">
+        <div class="arbol-empty">
+          <div class="icon">🌿</div>
+          <p style="font-style:italic;color:#6a5a38;">El árbol aparecerá aquí cuando registres personas</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<!-- ═══ MODAL AGREGAR / EDITAR ═══ -->
+<div class="overlay" id="modal-agregar">
+  <div class="modal">
+    <h3 id="modal-titulo">Registrar Persona</h3>
+    <div class="mgrid">
+      <div class="mfield full"><label>Nombre Completo</label><input type="text" id="m-nombre"></div>
+      <div class="mfield"><label>RUT</label><input type="text" id="m-rut"></div>
+      <div class="mfield"><label>Fecha Nacimiento</label><input type="text" id="m-fnac" placeholder="DD/MM/AAAA"></div>
+      <div class="mfield"><label>Lugar Nacimiento</label><input type="text" id="m-lnac"></div>
+      <div class="mfield"><label>Fecha Defunción</label><input type="text" id="m-fdef" placeholder="DD/MM/AAAA"></div>
+      <div class="mfield"><label>Dirección</label><input type="text" id="m-dir"></div>
+      <div class="mfield full"><label>Relación con Raíz</label>
+        <select id="m-relacion">
+          <option value="raiz">— Persona raíz —</option>
+          <option value="conyuge">Cónyuge</option>
+          <option value="padre">Padre</option>
+          <option value="madre">Madre</option>
+          <option value="hijo">Hijo/a</option>
+          <option value="hermano">Hermano/a</option>
+          <option value="abuelo-p">Abuelo paterno</option>
+          <option value="abuela-p">Abuela paterna</option>
+          <option value="abuelo-m">Abuelo materno</option>
+          <option value="abuela-m">Abuela materna</option>
+          <option value="nieto">Nieto/a</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+    </div>
+    <div id="extracted-preview-container"></div>
+    <div class="mactions">
+      <button class="mbtn sec" onclick="cerrarModalAgregar()">Cancelar</button>
+      <button class="mbtn pri" onclick="confirmarAgregar()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL PROCESANDO PDF ═══ -->
+<div class="overlay" id="modal-proc">
+  <div class="proc-modal">
+    <div class="proc-spinner"></div>
+    <h3>Analizando certificado…</h3>
+    <p id="proc-status">Extrayendo texto del PDF…</p>
+    <div class="proc-log" id="proc-log"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL FAMILIAR ═══ -->
+<div class="overlay" id="modal-familiar">
+  <div class="modal">
+    <h3>Agregar Familiar al Árbol</h3>
+    <div class="mgrid">
+      <div class="mfield full"><label>Nombre Completo</label><input type="text" id="f-nombre"></div>
+      <div class="mfield"><label>RUT</label><input type="text" id="f-rut"></div>
+      <div class="mfield"><label>Fecha Nacimiento</label><input type="text" id="f-fnac" placeholder="DD/MM/AAAA"></div>
+      <div class="mfield"><label>Lugar Nacimiento</label><input type="text" id="f-lnac"></div>
+      <div class="mfield"><label>Dirección</label><input type="text" id="f-dir"></div>
+      <div class="mfield full"><label>Relación con Raíz</label>
+        <select id="f-relacion">
+          <option value="padre">Padre</option>
+          <option value="madre">Madre</option>
+          <option value="hijo">Hijo/a</option>
+          <option value="conyuge">Cónyuge</option>
+          <option value="hermano">Hermano/a</option>
+          <option value="abuelo-p">Abuelo paterno</option>
+          <option value="abuela-p">Abuela paterna</option>
+          <option value="abuelo-m">Abuelo materno</option>
+          <option value="abuela-m">Abuela materna</option>
+          <option value="nieto">Nieto/a</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="mactions">
+      <button class="mbtn sec" onclick="cerrarModalFamiliar()">Cancelar</button>
+      <button class="mbtn pri" onclick="confirmarFamiliar()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════
+let db = {};          // { id: PersonaObj }
+let activo = null;    // id persona activa
+let editandoId = null;
+let pendingExtracted = null; // datos extraídos del PDF esperando confirmación
+
+try { const s = localStorage.getItem('gnot-v2'); if(s) db = JSON.parse(s); } catch(e){}
+
+function save(){ try{ localStorage.setItem('gnot-v2', JSON.stringify(db)); }catch(e){} }
+
+const REL_LABEL = {
+  raiz:'Raíz', conyuge:'Cónyuge', padre:'Padre', madre:'Madre',
+  hijo:'Hijo/a', hermano:'Hermano/a', 'abuelo-p':'Abuelo paterno',
+  'abuela-p':'Abuela paterna','abuelo-m':'Abuelo materno','abuela-m':'Abuela materna',
+  nieto:'Nieto/a', otro:'Otro'
+};
+const REL_NIVEL = {
+  'abuelo-p':0,'abuela-p':0,'abuelo-m':0,'abuela-m':0,
+  padre:1,madre:1,
+  raiz:2,conyuge:2,hermano:2,otro:2,
+  hijo:3,nieto:4
+};
+
+// ═══════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab,.tab-pane').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════════
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault(); dz.classList.remove('dragover');
+  procesarPDFs(e.dataTransfer.files);
+});
+
+// ═══════════════════════════════════════════════════════
+// BÚSQUEDA RUTIFY
+// ═══════════════════════════════════════════════════════
+async function buscar(){
+  const nombre = document.getElementById('inp-nombre').value.trim();
+  const rut    = document.getElementById('inp-rut').value.trim();
+  const btn    = document.getElementById('btn-txt');
+  const res    = document.getElementById('search-results');
+  if(!nombre && !rut){ toast('Ingresa un nombre o RUT'); return; }
+  btn.innerHTML='<span class="spin-inline"></span>Buscando…';
+  res.innerHTML='';
+  try{
+    let lista=[];
+    if(rut){
+      const rc = rut.replace(/\./g,'').replace(/-/g,'').trim();
+      const r  = await fetch((window.API_BASE||'')+'/api/buscar-rut?rut=' + encodeURIComponent(rc));
+      if(r.ok){ const d = await r.json(); if(Array.isArray(d)) lista=d; else if(d&&d.name) lista=[d]; }
+    } else {
+      const r = await fetch((window.API_BASE||'')+'/api/buscar-nombre?name=' + encodeURIComponent(nombre));
+      if(r.ok){ const d = await r.json(); lista = Array.isArray(d) ? d.slice(0,8) : (d&&d.name?[d]:[]); }
+    }
+    if(!lista.length){
+      res.innerHTML=`<div class="empty-msg">Sin resultados.</div>
+        <button class="btn-full" style="margin-top:6px" onclick="abrirModalAgregar()">+ Agregar manualmente</button>`;
+    } else {
+      lista.forEach(p=>{
+        // La nueva API usa: p.name (completo), p.rut, p.address, p.city
+        const nombreCompleto = p.name || [p.firstName, p.lastName].filter(Boolean).join(' ') || '—';
+        const direccion = [p.address, p.city].filter(Boolean).join(', ') || 'Sin dirección';
+        const d=document.createElement('div');
+        d.className='result-item';
+        d.innerHTML=`<div class="ri-name">${nombreCompleto}</div><div class="ri-rut">${p.rut||rut||'—'}</div><div class="ri-addr">${direccion}</div>`;
+        d.onclick=()=>abrirModalAgregar({nombre:nombreCompleto, rut:p.rut||rut, dir:direccion, fnac: p.birthDate||'', lnac:p.city||''});
+        res.appendChild(d);
+      });
+    }
+  } catch(e){
+    res.innerHTML=`<div class="empty-msg">Error de conexión.</div>
+      <button class="btn-full" style="margin-top:6px" onclick="abrirModalAgregar()">+ Agregar manualmente</button>`;
+  }
+  btn.textContent='⌕ Buscar';
+}
+
+// ═══════════════════════════════════════════════════════
+// PROCESAMIENTO PDF
+// ═══════════════════════════════════════════════════════
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+async function procesarPDFs(files){
+  for(const file of Array.from(files)){
+    if(!file.name.toLowerCase().endsWith('.pdf')) continue;
+    await procesarUnPDF(file);
+  }
+}
+
+async function procesarUnPDF(file){
+  abrirProcModal(`Analizando: ${file.name}`);
+  logProc('Cargando PDF…');
+
+  try{
+    // 1. Extraer texto con pdf.js
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+    let textoTotal = '';
+    logProc(`PDF cargado. ${pdf.numPages} página(s).`);
+
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const tc   = await page.getTextContent();
+      textoTotal += tc.items.map(x=>x.str).join(' ') + '\n';
+    }
+
+    const textoLimpio = textoTotal.trim();
+    logProc(`Texto extraído: ${textoLimpio.length} caracteres.`);
+
+    let datosExtraidos;
+    if(textoLimpio.length > 80){
+      logProc('Texto suficiente. Analizando con IA…');
+      datosExtraidos = await analizarConIA(textoLimpio, file.name);
+    } else {
+      // PDF escaneado: convertir página a imagen y enviar a IA
+      logProc('PDF escaneado detectado. Convirtiendo a imagen…');
+      const imageData = await pdfPaginaAImagen(pdf, 1);
+      logProc('Imagen generada. Analizando con IA (visión)…');
+      datosExtraidos = await analizarImagenConIA(imageData, file.name);
+    }
+
+    cerrarProcModal();
+
+    if(datosExtraidos){
+      logProc('✓ Extracción exitosa.');
+      pendingExtracted = datosExtraidos;
+      abrirModalAgregar(datosExtraidos, true);
+    } else {
+      cerrarProcModal();
+      toast('No se pudo extraer datos del PDF');
+    }
+  } catch(err){
+    cerrarProcModal();
+    console.error(err);
+    toast('Error al procesar el PDF: ' + err.message);
+  }
+}
+
+async function pdfPaginaAImagen(pdf, pageNum){
+  const page   = await pdf.getPage(pageNum);
+  const scale  = 2;
+  const vp     = page.getViewport({scale});
+  const canvas = document.createElement('canvas');
+  canvas.width  = vp.width;
+  canvas.height = vp.height;
+  await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1]; // base64
+}
+
+// ── Parser local para certificados del Registro Civil chileno ──
+// No requiere llamada externa, funciona 100% en el navegador.
+function analizarConIA(texto, filename){
+  return new Promise(resolve => {
+    logProc('Parseando estructura del certificado…');
+    const t = texto.replace(/\s+/g,' ');
+    const res = {
+      tipo_certificado:'', nombre:'', rut:'',
+      fecha_nacimiento:'', lugar_nacimiento:'',
+      fecha_defuncion:'', lugar_defuncion:'',
+      nombre_padre:'', rut_padre:'',
+      nombre_madre:'', rut_madre:'',
+      nombre_conyuge:'', rut_conyuge:'',
+      fecha_matrimonio:'', lugar_matrimonio:'',
+      notas:''
+    };
+
+    // ── Tipo de certificado ──
+    if(/nacimiento/i.test(t))        res.tipo_certificado = 'nacimiento';
+    else if(/matrimonio/i.test(t))   res.tipo_certificado = 'matrimonio';
+    else if(/defunci[oó]n/i.test(t)) res.tipo_certificado = 'defuncion';
+
+    // ── RUTs (patrón XX.XXX.XXX-X o XXXXXXXX-X) ──
+    const rutPattern = /\b(\d{1,2}\.?\d{3}\.?\d{3}-[\dkK])\b/g;
+    const ruts = [...t.matchAll(rutPattern)].map(m => m[1].replace(/\./g,''));
+
+    // ── Extractor genérico de campo ──
+    function extraer(patrones) {
+      for(const pat of patrones){
+        const m = t.match(pat);
+        if(m && m[1]) return m[1].trim().replace(/\s+/g,' ');
+      }
+      return '';
+    }
+
+    // ── Nombre principal ──
+    res.nombre = extraer([
+      /(?:nombre completo|nombre del inscrito|inscrito)[:\s]+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,50}?)(?=\s+(?:rut|cédula|sexo|fecha|naci|civil))/i,
+      /(?:que don|que doña|que el|que la)\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,50}?)(?=,|\s+rut|\s+cédula)/i,
+      /CERTIFICA[^\n]*?\b([A-ZÁÉÍÓÚÑ]{2,}\s+[A-ZÁÉÍÓÚÑ]{2,}(?:\s+[A-ZÁÉÍÓÚÑ]{2,})*)/,
+    ]);
+
+    // ── RUT principal (primero de la lista) ──
+    if(ruts.length > 0) res.rut = ruts[0];
+
+    // ── Fechas ──
+    const fechaPattern = /\b(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|\d{1,2}\s+de\s+\w+\s+de\s+\d{4})\b/gi;
+    const fechas = [...t.matchAll(fechaPattern)].map(m=>m[1]);
+
+    res.fecha_nacimiento = extraer([
+      /(?:fecha de nacimiento|naci[oó] el|nacimiento)[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      /(?:fecha de nacimiento|naci[oó] el|nacimiento)[:\s]+(\d{1,2}\s+de\s+\w+\s+de\s+\d{4})/i,
+    ]) || (res.tipo_certificado==='nacimiento' && fechas[0] ? fechas[0] : '');
+
+    res.lugar_nacimiento = extraer([
+      /(?:lugar de nacimiento|comuna de nacimiento|naci[oó] en)[:\s]+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{2,40}?)(?=\s+(?:rut|fecha|padre|madre|sexo|,))/i,
+    ]);
+
+    res.fecha_defuncion = extraer([
+      /(?:fecha de defunci[oó]n|falleci[oó] el)[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      /(?:fecha de defunci[oó]n|falleci[oó] el)[:\s]+(\d{1,2}\s+de\s+\w+\s+de\s+\d{4})/i,
+    ]);
+
+    res.fecha_matrimonio = extraer([
+      /(?:fecha de matrimonio|contrajeron matrimonio el|se casaron el)[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+      /(?:fecha de matrimonio|contrajeron matrimonio el)[:\s]+(\d{1,2}\s+de\s+\w+\s+de\s+\d{4})/i,
+    ]) || (res.tipo_certificado==='matrimonio' && fechas[0] ? fechas[0] : '');
+
+    res.lugar_matrimonio = extraer([
+      /(?:lugar de matrimonio|oficina civil de|celebrado en)[:\s]+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{2,40}?)(?=\s+(?:rut|fecha|contrayente|,))/i,
+    ]);
+
+    // ── Padre ──
+    res.nombre_padre = extraer([
+      /(?:padre|nombre del padre)[:\s]+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,50}?)(?=\s+(?:rut|cédula|madre|,|\.))/i,
+      /(?:hijo de|hija de)\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,40}?)\s+y\s+/i,
+    ]);
+    if(ruts.length > 1 && res.nombre_padre) res.rut_padre = ruts[1];
+
+    // ── Madre ──
+    res.nombre_madre = extraer([
+      /(?:madre|nombre de la madre)[:\s]+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,50}?)(?=\s+(?:rut|cédula|,|\.))/i,
+      /(?:hijo de|hija de)[^\n]+y\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,40}?)(?=\s+(?:rut|,|\.))/i,
+    ]);
+    if(ruts.length > 2 && res.nombre_madre) res.rut_madre = ruts[2];
+
+    // ── Cónyuge (para matrimonio) ──
+    if(res.tipo_certificado === 'matrimonio'){
+      res.nombre_conyuge = extraer([
+        /(?:contrayente|c[oó]nyuge)[:\s]+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{4,50}?)(?=\s+(?:rut|y\s+[A-Z]|,))/i,
+      ]);
+      if(ruts.length > 1) res.rut_conyuge = ruts[1];
+    }
+
+    // ── Notas: guardar fragmento relevante del texto ──
+    res.notas = t.substring(0, 300).replace(/\s+/g,' ').trim();
+
+    logProc(`Tipo detectado: ${res.tipo_certificado || 'indeterminado'}`);
+    if(res.nombre)  logProc(`Nombre: ${res.nombre}`);
+    if(res.rut)     logProc(`RUT: ${res.rut}`);
+    if(res.nombre_padre) logProc(`Padre: ${res.nombre_padre}`);
+    if(res.nombre_madre) logProc(`Madre: ${res.nombre_madre}`);
+
+    resolve(res);
+  });
+}
+
+// Para PDFs escaneados: extraer lo que se pueda del nombre del archivo y mostrar formulario manual
+async function analizarImagenConIA(base64img, filename){
+  logProc('PDF escaneado: no se puede extraer texto automáticamente.');
+  logProc('Se abrirá el formulario para que ingreses los datos manualmente.');
+  // Intentar detectar tipo por nombre de archivo
+  const tipo = /nac/i.test(filename) ? 'nacimiento' : /mat/i.test(filename) ? 'matrimonio' : /def/i.test(filename) ? 'defuncion' : '';
+  return { tipo_certificado: tipo, nombre:'', rut:'', fecha_nacimiento:'', lugar_nacimiento:'',
+    fecha_defuncion:'', nombre_padre:'', nombre_madre:'', nombre_conyuge:'',
+    fecha_matrimonio:'', lugar_matrimonio:'', notas:'PDF escaneado - datos ingresados manualmente' };
+}
+
+function parseJSON(raw){
+  try{
+    const clean = raw.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean);
+  } catch(e){ return null; }
+}
+
+function abrirProcModal(status){
+  document.getElementById('proc-status').textContent = status;
+  document.getElementById('proc-log').innerHTML = '';
+  document.getElementById('modal-proc').classList.add('open');
+}
+function cerrarProcModal(){ document.getElementById('modal-proc').classList.remove('open'); }
+function logProc(msg){
+  const el = document.getElementById('proc-log');
+  el.innerHTML += `<div>▸ ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════
+// MODAL AGREGAR
+// ═══════════════════════════════════════════════════════
+function abrirModalAgregar(data, fromPDF=false){
+  editandoId = null;
+  document.getElementById('modal-titulo').textContent = fromPDF ? 'Registrar desde Certificado PDF' : 'Registrar Persona';
+  document.getElementById('m-nombre').value  = data?.nombre  || '';
+  document.getElementById('m-rut').value     = data?.rut     || '';
+  document.getElementById('m-dir').value     = data?.dir     || '';
+  document.getElementById('m-fnac').value    = data?.fecha_nacimiento || data?.fnac || '';
+  document.getElementById('m-lnac').value    = data?.lugar_nacimiento || data?.lnac || '';
+  document.getElementById('m-fdef').value    = data?.fecha_defuncion  || '';
+  document.getElementById('m-relacion').value= data?.relacion || 'raiz';
+
+  // Preview datos extraídos
+  const prev = document.getElementById('extracted-preview-container');
+  if(fromPDF && data){
+    let html = `<div class="extracted-preview"><h4>✓ Datos extraídos del PDF</h4>`;
+    const campos = [
+      ['Tipo','tipo_certificado'],['Nombre','nombre'],['RUT','rut'],
+      ['F. Nacimiento','fecha_nacimiento'],['Lugar Nacimiento','lugar_nacimiento'],
+      ['Padre','nombre_padre'],['Madre','nombre_madre'],['Cónyuge','nombre_conyuge'],
+      ['F. Matrimonio','fecha_matrimonio'],['F. Defunción','fecha_defuncion'],
+    ];
+    campos.forEach(([lbl,k])=>{
+      if(data[k]) html+=`<div class="ep-field"><div class="ep-label">${lbl}</div><div class="ep-val">${data[k]}</div></div>`;
+    });
+    html+='</div>';
+    prev.innerHTML = html;
+  } else {
+    prev.innerHTML = '';
+  }
+
+  document.getElementById('modal-agregar').classList.add('open');
+}
+
+function cerrarModalAgregar(){
+  document.getElementById('modal-agregar').classList.remove('open');
+  pendingExtracted = null;
+}
+
+function confirmarAgregar(){
+  const nombre = document.getElementById('m-nombre').value.trim();
+  if(!nombre){ toast('El nombre es obligatorio'); return; }
+
+  const id = editandoId || 'p_'+Date.now();
+  const ex = pendingExtracted || {};
+
+  const persona = db[id] || { id, certificados:[], notas:'' };
+  persona.nombre     = nombre;
+  persona.rut        = document.getElementById('m-rut').value.trim();
+  persona.direccion  = document.getElementById('m-dir').value.trim();
+  persona.fnac       = document.getElementById('m-fnac').value.trim();
+  persona.lnac       = document.getElementById('m-lnac').value.trim();
+  persona.fdef       = document.getElementById('m-fdef').value.trim();
+  persona.relacion   = document.getElementById('m-relacion').value;
+  persona.fechaAlta  = persona.fechaAlta || new Date().toLocaleDateString('es-CL');
+  persona.fuentePDF  = !!pendingExtracted;
+
+  // Registrar certificado extraído automáticamente
+  if(pendingExtracted?.tipo_certificado){
+    const tipo = pendingExtracted.tipo_certificado.substring(0,3); // nac|mat|def
+    const yaExiste = persona.certificados.some(c=>c.tipo===tipo);
+    if(!yaExiste){
+      persona.certificados.push({
+        tipo, fecha: new Date().toLocaleDateString('es-CL'),
+        origen:'PDF', detalle: pendingExtracted
+      });
+    }
+  }
+
+  db[id] = persona;
+  save();
+
+  // Auto-agregar familiares mencionados en el PDF
+  if(pendingExtracted) autoAgregarFamiliares(pendingExtracted, id);
+
+  cerrarModalAgregar();
+  renderSidebar();
+  seleccionarPersona(id);
+  renderArbol();
+  toast(`${nombre} registrado`+(persona.fuentePDF?' (desde PDF)':''));
+}
+
+function autoAgregarFamiliares(ex, personaRaizId){
+  const familiares = [
+    {nombre: ex.nombre_padre,  rut: ex.rut_padre,   rel:'padre'},
+    {nombre: ex.nombre_madre,  rut: ex.rut_madre,   rel:'madre'},
+    {nombre: ex.nombre_conyuge,rut: ex.rut_conyuge, rel:'conyuge'},
+  ];
+  familiares.forEach(f=>{
+    if(!f.nombre) return;
+    // Verificar si ya existe por nombre o RUT
+    const existe = Object.values(db).find(p=>
+      p.nombre.toLowerCase()===f.nombre.toLowerCase() ||
+      (f.rut && p.rut && p.rut===f.rut)
+    );
+    if(!existe){
+      const id = 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+      db[id]={
+        id, nombre:f.nombre, rut:f.rut||'', direccion:'', fnac:'', lnac:'', fdef:'',
+        relacion:f.rel, certificados:[], notas:'',
+        fechaAlta:new Date().toLocaleDateString('es-CL'),
+        autoGenerado:true
+      };
+    }
+  });
+  save();
+}
+
+// ═══════════════════════════════════════════════════════
+// MODAL FAMILIAR
+// ═══════════════════════════════════════════════════════
+function abrirModalFamiliar(){
+  ['f-nombre','f-rut','f-fnac','f-lnac','f-dir'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-relacion').value='padre';
+  document.getElementById('modal-familiar').classList.add('open');
+}
+function cerrarModalFamiliar(){ document.getElementById('modal-familiar').classList.remove('open'); }
+function confirmarFamiliar(){
+  const nombre=document.getElementById('f-nombre').value.trim();
+  if(!nombre){ toast('El nombre es obligatorio'); return; }
+  const id='p_'+Date.now();
+  db[id]={
+    id, nombre,
+    rut:     document.getElementById('f-rut').value.trim(),
+    fnac:    document.getElementById('f-fnac').value.trim(),
+    lnac:    document.getElementById('f-lnac').value.trim(),
+    direccion:document.getElementById('f-dir').value.trim(),
+    fdef:'',
+    relacion:document.getElementById('f-relacion').value,
+    certificados:[], notas:'',
+    fechaAlta:new Date().toLocaleDateString('es-CL')
+  };
+  save();
+  cerrarModalFamiliar();
+  renderSidebar();
+  renderArbol();
+  toast(`${nombre} agregado al árbol`);
+}
+
+// ═══════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════
+function renderSidebar(){
+  const lista = Object.values(db);
+  document.getElementById('count').textContent = lista.length;
+  const c = document.getElementById('personas-list');
+  if(!lista.length){ c.innerHTML='<div class="empty-msg">Ninguna aún.</div>'; return; }
+  c.innerHTML='';
+  lista.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='person-chip'+(p.id===activo?' active':'');
+    const dots=p.certificados.map(c=>`<div class="pc-dot ${c.tipo}"title="${c.tipo}"></div>`).join('');
+    const extBadge=p.fuentePDF?'<span style="font-size:.55rem;color:var(--green);margin-left:4px;">PDF</span>':'';
+    d.innerHTML=`
+      <div class="pc-initial">${p.nombre.charAt(0).toUpperCase()}</div>
+      <div class="pc-info">
+        <div class="pc-name">${p.nombre}${extBadge}</div>
+        <div class="pc-rut">${p.rut||'Sin RUT'}</div>
+        <div class="pc-certs">${dots}</div>
+      </div>`;
+    d.onclick=()=>seleccionarPersona(p.id);
+    c.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// FICHA
+// ═══════════════════════════════════════════════════════
+function seleccionarPersona(id){
+  activo=id;
+  renderSidebar();
+  renderFicha();
+  // Switch to ficha tab
+  document.querySelectorAll('.tab,.tab-pane').forEach(x=>x.classList.remove('active'));
+  document.querySelector('[data-tab="ficha"]').classList.add('active');
+  document.getElementById('tab-ficha').classList.add('active');
+}
+
+function renderFicha(){
+  const c=document.getElementById('ficha-wrap');
+  const p=db[activo];
+  if(!p){ c.innerHTML='<div class="ficha"><div class="ficha-empty"><div class="icon">📜</div><p>Selecciona una persona</p></div></div>'; return; }
+
+  const certs = p.certificados;
+  const certsHTML = certs.length
+    ? certs.map((cert,i)=>`
+      <div class="cert-item">
+        <span class="cert-badge ${cert.tipo}">${cert.tipo==='nac'?'Nacimiento':cert.tipo==='mat'?'Matrimonio':'Defunción'}</span>
+        <span class="cert-info">
+          ${cert.origen==='PDF'?'<span class="extracted-badge">PDF</span> ':''} ${cert.fecha}
+          ${cert.detalle?.lugar_nacimiento?' · '+cert.detalle.lugar_nacimiento:''}
+          ${cert.detalle?.fecha_matrimonio?' · '+cert.detalle.fecha_matrimonio:''}
+        </span>
+        <button class="cert-del" onclick="eliminarCert('${p.id}',${i})" title="Eliminar">✕</button>
+      </div>`).join('')
+    : '<div class="empty-msg" style="padding:8px 0">Ningún certificado aún</div>';
+
+  const rcBase='https://www.registrocivil.cl/principal/certificados-gratuitos';
+
+  c.innerHTML=`<div class="ficha">
+    <div class="ficha-hdr">
+      <div class="ficha-avatar">${p.nombre.charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div class="ficha-nombre">${p.nombre}${p.fuentePDF?'<span class="extracted-badge">Desde PDF</span>':''}</div>
+        <div class="ficha-rut">RUT: ${p.rut||'—'}</div>
+        ${p.fnac?`<div class="ficha-dir">Nacimiento: ${p.fnac}${p.lnac?' · '+p.lnac:''}</div>`:''}
+        ${p.fdef?`<div class="ficha-dir">Defunción: ${p.fdef}</div>`:''}
+        ${p.direccion?`<div class="ficha-dir">📍 ${p.direccion}</div>`:''}
+        <div class="ficha-rel">${REL_LABEL[p.relacion]||p.relacion||'—'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+        <button onclick="editarPersona('${p.id}')" style="padding:5px 10px;background:transparent;border:1px solid var(--sepia-dk);font-family:'Courier Prime',monospace;font-size:.62rem;cursor:pointer;color:var(--ink-lt);letter-spacing:.07em;">✎ Editar</button>
+        <button onclick="eliminarPersona('${p.id}')" style="padding:5px 10px;background:transparent;border:1px solid #ddd;font-family:'Courier Prime',monospace;font-size:.62rem;cursor:pointer;color:#aaa;letter-spacing:.07em;">✕ Eliminar</button>
+      </div>
+    </div>
+
+    <div class="ficha-grid">
+      <div class="fcard">
+        <h4>Certificados Registrados</h4>
+        ${certsHTML}
+        <div class="cert-actions">
+          <button class="cbtn nac" onclick="addCert('${p.id}','nac')">+ Nacimiento</button>
+          <button class="cbtn mat" onclick="addCert('${p.id}','mat')">+ Matrimonio</button>
+          <button class="cbtn def" onclick="addCert('${p.id}','def')">+ Defunción</button>
+        </div>
+      </div>
+
+      <div class="fcard">
+        <h4>Registro Civil — Solicitar</h4>
+        <p class="rc-note">Abre el formulario del Registro Civil. Tendrás que ingresar <em>tu</em> RUT, serie de cédula y correo.</p>
+        <a class="rc-link nac" href="${rcBase}#modal_nacimiento" target="_blank" rel="noopener">→ Certificado de Nacimiento</a>
+        <a class="rc-link mat" href="${rcBase}#modal_matrimonio" target="_blank" rel="noopener">→ Certificado de Matrimonio</a>
+        <a class="rc-link def" href="${rcBase}#modal_defuncion" target="_blank" rel="noopener">→ Certificado de Defunción</a>
+        ${p.rut?`<p style="margin-top:8px;font-family:'Courier Prime',monospace;font-size:.62rem;color:var(--ink-lt);">RUT a buscar: <strong>${p.rut}</strong></p>`:''}
+      </div>
+    </div>
+
+    <div class="fcard full" style="margin-bottom:16px;">
+      <h4>Notas de Historia Familiar</h4>
+      <textarea class="notas-area" id="nota-${p.id}" placeholder="Observaciones del índice notarial, relaciones familiares, fechas relevantes…">${p.notas||''}</textarea>
+      <button class="btn-save-note" onclick="saveNota('${p.id}')">Guardar notas</button>
+    </div>
+
+    <div style="text-align:right;font-family:'Courier Prime',monospace;font-size:.62rem;color:var(--sepia-dk);">
+      Alta: ${p.fechaAlta} ${p.autoGenerado?'· Auto-generado desde PDF':''}
+    </div>
+  </div>`;
+}
+
+function editarPersona(id){
+  editandoId=id;
+  const p=db[id];
+  document.getElementById('modal-titulo').textContent='Editar Persona';
+  document.getElementById('m-nombre').value  = p.nombre||'';
+  document.getElementById('m-rut').value     = p.rut||'';
+  document.getElementById('m-dir').value     = p.direccion||'';
+  document.getElementById('m-fnac').value    = p.fnac||'';
+  document.getElementById('m-lnac').value    = p.lnac||'';
+  document.getElementById('m-fdef').value    = p.fdef||'';
+  document.getElementById('m-relacion').value= p.relacion||'raiz';
+  document.getElementById('extracted-preview-container').innerHTML='';
+  document.getElementById('modal-agregar').classList.add('open');
+}
+
+function eliminarPersona(id){
+  if(!confirm('¿Eliminar esta persona del registro?')) return;
+  delete db[id];
+  save();
+  activo=null;
+  renderSidebar();
+  renderFicha();
+  renderArbol();
+}
+
+function addCert(id, tipo){
+  const p=db[id]; if(!p) return;
+  p.certificados.push({tipo, fecha:new Date().toLocaleDateString('es-CL'), origen:'Manual'});
+  save(); renderFicha(); renderArbol();
+  toast('Certificado registrado');
+}
+
+function eliminarCert(id, idx){
+  const p=db[id]; if(!p) return;
+  p.certificados.splice(idx,1);
+  save(); renderFicha(); renderArbol();
+}
+
+function saveNota(id){
+  const p=db[id]; if(!p) return;
+  p.notas=document.getElementById(`nota-${id}`).value;
+  save(); toast('Notas guardadas');
+}
+
+// ═══════════════════════════════════════════════════════
+// ÁRBOL GENEALÓGICO
+// ═══════════════════════════════════════════════════════
+function renderArbol(){
+  const c=document.getElementById('arbol-wrap');
+  const lista=Object.values(db);
+  if(!lista.length){
+    c.innerHTML=`<div class="arbol-empty"><div class="icon">🌿</div><p>El árbol aparecerá aquí cuando registres personas</p></div>`;
+    return;
+  }
+
+  // Agrupar por nivel
+  const niv={};
+  lista.forEach(p=>{
+    const n=REL_NIVEL[p.relacion]??2;
+    if(!niv[n]) niv[n]=[];
+    niv[n].push(p);
+  });
+
+  const LABELS={0:'Bisabuelos / Abuelos',1:'Padres',2:'Generación Principal',3:'Hijos / Sobrinos',4:'Nietos'};
+  const nivsOrdenados=Object.keys(niv).map(Number).sort((a,b)=>a-b);
+
+  let html='<div class="tree">';
+
+  nivsOrdenados.forEach((n,idx)=>{
+    if(idx>0) html+=`<div class="tree-connector"></div>`;
+    html+=`<div class="tree-level"><div class="tree-level-lbl">${LABELS[n]||'Nivel '+n}</div>`;
+
+    niv[n].forEach((p,i)=>{
+      if(i>0) html+=`<div class="tree-h-line"></div>`;
+      const dots=p.certificados.map(c=>`<div class="ndot ${c.tipo}" title="${c.tipo==='nac'?'Nacimiento':c.tipo==='mat'?'Matrimonio':'Defunción'}${c.origen==='PDF'?' (PDF)':''}"></div>`).join('');
+      const dotsSection=p.certificados.length?`<div class="nodo-dots">${dots}</div>`:'';
+      const pdfDot=p.fuentePDF?`<div class="ndot ext" title="Datos desde PDF"></div>`:'';
+      html+=`<div class="nodo${p.relacion==='raiz'?' raiz':''}${p.id===activo?' sel':''}" onclick="seleccionarPersona('${p.id}')">
+        <div class="nodo-nom">${p.nombre}</div>
+        <div class="nodo-rut">${p.rut||'Sin RUT'}</div>
+        <div class="nodo-rel">${REL_LABEL[p.relacion]||'—'}</div>
+        <div class="nodo-dots">${dots}${pdfDot}</div>
+      </div>`;
+    });
+
+    html+=`</div>`;
+  });
+
+  html+=`<div class="tree-connector"></div>
+    <div class="tree-level" style="justify-content:center;">
+      <div class="nodo-add" onclick="abrirModalFamiliar()">+ Agregar familiar al árbol</div>
+    </div>`;
+  html+=`</div>`;
+
+  // Leyenda
+  html+=`<div class="tree-legend">
+    <div class="tleg"><div class="tleg-dot" style="background:var(--accent2)"></div>NACIMIENTO</div>
+    <div class="tleg"><div class="tleg-dot" style="background:var(--accent)"></div>MATRIMONIO</div>
+    <div class="tleg"><div class="tleg-dot" style="background:#666"></div>DEFUNCIÓN</div>
+    <div class="tleg"><div class="tleg-dot" style="background:var(--green)"></div>DATOS DESDE PDF</div>
+  </div>`;
+
+  c.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTAR EXCEL
+// ═══════════════════════════════════════════════════════
+function exportarExcel(){
+  const lista=Object.values(db);
+  if(!lista.length){ toast('No hay personas registradas'); return; }
+
+  // Hoja 1: Personas
+  const rows1=[['Nombre','RUT','Relación','F. Nacimiento','Lugar Nacimiento','F. Defunción','Dirección','Certificados','Notas','Alta','Fuente']];
+  lista.forEach(p=>{
+    rows1.push([
+      p.nombre, p.rut||'', REL_LABEL[p.relacion]||'', p.fnac||'', p.lnac||'',
+      p.fdef||'', p.direccion||'',
+      p.certificados.map(c=>(c.tipo==='nac'?'Nacimiento':c.tipo==='mat'?'Matrimonio':'Defunción')+' ('+c.fecha+')').join('; '),
+      p.notas||'', p.fechaAlta||'', p.fuentePDF?'PDF':'Manual'
+    ]);
+  });
+
+  // Hoja 2: Certificados detalle
+  const rows2=[['Persona','RUT','Tipo Certificado','Fecha Registro','Origen','F. Nacimiento','Lugar Nac.','Nombre Padre','Nombre Madre','Cónyuge','F. Matrimonio','F. Defunción']];
+  lista.forEach(p=>{
+    p.certificados.forEach(c=>{
+      const d=c.detalle||{};
+      rows2.push([
+        p.nombre, p.rut||'',
+        c.tipo==='nac'?'Nacimiento':c.tipo==='mat'?'Matrimonio':'Defunción',
+        c.fecha, c.origen||'Manual',
+        d.fecha_nacimiento||'', d.lugar_nacimiento||'',
+        d.nombre_padre||'', d.nombre_madre||'',
+        d.nombre_conyuge||'', d.fecha_matrimonio||'',
+        d.fecha_defuncion||''
+      ]);
+    });
+  });
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows1), 'Personas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows2), 'Certificados');
+  XLSX.writeFile(wb, `genealogia-notarial-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel exportado');
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTAR PDF ÁRBOL (print)
+// ═══════════════════════════════════════════════════════
+function exportarPDF(){
+  const lista=Object.values(db);
+  if(!lista.length){ toast('No hay personas registradas'); return; }
+
+  const niv={};
+  lista.forEach(p=>{const n=REL_NIVEL[p.relacion]??2; if(!niv[n])niv[n]=[]; niv[n].push(p);});
+  const nivsOrdenados=Object.keys(niv).map(Number).sort((a,b)=>a-b);
+  const LABELS={0:'Abuelos',1:'Padres',2:'Principal',3:'Hijos',4:'Nietos'};
+
+  let arbolHTML='';
+  nivsOrdenados.forEach((n,idx)=>{
+    arbolHTML+=`<div style="margin-bottom:4px;font-size:9px;color:#888;text-align:center;letter-spacing:.1em;text-transform:uppercase;">${LABELS[n]||'Nivel '+n}</div>`;
+    arbolHTML+=`<div style="display:flex;justify-content:center;gap:12px;margin-bottom:0;">`;
+    niv[n].forEach(p=>{
+      const certs=p.certificados.map(c=>{
+        const color=c.tipo==='nac'?'#1a4a6b':c.tipo==='mat'?'#8b1a1a':'#666';
+        return `<span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;margin:0 1px;"></span>`;
+      }).join('');
+      const border=p.relacion==='raiz'?'2px solid #8b1a1a':'1.5px solid #4a3820';
+      arbolHTML+=`<div style="border:${border};padding:8px 12px;min-width:120px;max-width:160px;text-align:center;background:#f8f4ec;">
+        <div style="font-family:Georgia,serif;font-size:11px;font-weight:bold;margin-bottom:2px;">${p.nombre}</div>
+        <div style="font-family:monospace;font-size:9px;color:#6b4c2a;">${p.rut||'—'}</div>
+        <div style="font-size:9px;color:#b8860b;font-style:italic;">${REL_LABEL[p.relacion]||''}</div>
+        ${p.fnac?`<div style="font-size:8px;color:#888;">Nac: ${p.fnac}</div>`:''}
+        <div style="margin-top:4px;">${certs}</div>
+      </div>`;
+    });
+    arbolHTML+=`</div>`;
+    if(idx<nivsOrdenados.length-1) arbolHTML+=`<div style="text-align:center;color:#4a3820;margin:4px 0;">│</div>`;
+  });
+
+  // Fichas
+  let fichasHTML='';
+  lista.forEach(p=>{
+    const certs=p.certificados.map(c=>`<span style="border:1px solid;padding:1px 5px;margin-right:4px;font-size:9px;">${c.tipo==='nac'?'Nacimiento':c.tipo==='mat'?'Matrimonio':'Defunción'} ${c.fecha}${c.origen==='PDF'?' [PDF]':''}</span>`).join('');
+    fichasHTML+=`<div style="border:1px solid #c9b89a;padding:12px;margin-bottom:10px;background:white;break-inside:avoid;">
+      <div style="font-family:Georgia,serif;font-size:13px;font-weight:bold;border-bottom:1px solid #c9b89a;padding-bottom:5px;margin-bottom:8px;">${p.nombre} <span style="font-size:10px;font-weight:normal;color:#6b4c2a;">${REL_LABEL[p.relacion]||''}</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;color:#3d2b1a;margin-bottom:8px;">
+        <div><strong>RUT:</strong> ${p.rut||'—'}</div>
+        <div><strong>Dirección:</strong> ${p.direccion||'—'}</div>
+        <div><strong>Nacimiento:</strong> ${p.fnac||'—'} ${p.lnac?'· '+p.lnac:''}</div>
+        <div><strong>Defunción:</strong> ${p.fdef||'—'}</div>
+      </div>
+      ${certs?`<div style="margin-bottom:6px;">${certs}</div>`:''}
+      ${p.notas?`<div style="font-size:9px;font-style:italic;color:#6b4c2a;border-top:1px dashed #c9b89a;padding-top:5px;margin-top:5px;">${p.notas}</div>`:''}
+    </div>`;
+  });
+
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Registro Genealógico Notarial</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=EB+Garamond&family=Courier+Prime&display=swap');
+    body{font-family:'EB Garamond',Georgia,serif;margin:0;padding:20px;background:#f5efe0;color:#1a1209;}
+    h1{font-family:'Playfair Display',serif;font-size:18px;text-align:center;margin-bottom:4px;}
+    h2{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#6b4c2a;margin:16px 0 8px;border-bottom:1px solid #c9b89a;padding-bottom:4px;}
+    .subtitle{text-align:center;font-size:10px;color:#6b4c2a;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px;}
+    .date{text-align:center;font-size:9px;color:#9a7a5a;margin-bottom:16px;}
+    @media print{body{background:white;padding:10px;}}
+  </style><script>
+  // URL del backend en Render — se reemplaza automáticamente
+  window.API_BASE = "%%RENDER_URL%%";
+</script>
+</head><body>
+  <h1>Registro Genealógico Notarial</h1>
+  <div class="subtitle">Índice familiar · Certificados · Historia</div>
+  <div class="date">Generado el ${new Date().toLocaleDateString('es-CL')} · ${lista.length} persona(s) registrada(s)</div>
+  <h2>Árbol Genealógico</h2>
+  <div style="padding:16px;background:white;border:1px solid #c9b89a;margin-bottom:16px;">${arbolHTML}</div>
+  <h2>Fichas Personales</h2>
+  ${fichasHTML}
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+let toastT;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+renderSidebar();
+renderFicha();
+renderArbol();
+</script>
+</body>
+</html>
