@@ -2,10 +2,11 @@ services:
   - type: web
     name: genealogia-notarial-api
     runtime: python
-    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
-    startCommand: python servidor.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 python servidor.py
     envVars:
       - key: PORT
         value: 10000
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: /opt/render/.cache/ms-playwright
+      - key: PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS
+        value: "1"
+
