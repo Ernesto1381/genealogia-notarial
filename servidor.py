@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-Backend para Genealogia Notarial
-- Deploy en Render.com
-- Busqueda por nombre: Playwright -> nombrerutyfirma.com
-- Busqueda por RUT:    api.rutificador.live
+Backend para Genealogia Notarial - Render.com
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -31,8 +28,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        path = self.path.split("?")[0]
-
         if self.path.startswith("/api/buscar-nombre"):
             params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             name   = params.get("name", [""])[0].strip()
@@ -41,7 +36,7 @@ class Handler(BaseHTTPRequestHandler):
                 data = self._playwright_nombre(name)
                 self._json(200, data)
             except Exception as e:
-                print(f"Error: {e}")
+                print(f"Error playwright: {e}")
                 self._json(500, {"error": str(e)})
 
         elif self.path.startswith("/api/buscar-rut"):
@@ -69,7 +64,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._json(500, {"error": str(e)})
 
-        elif path == "/health":
+        elif self.path.split("?")[0] == "/health":
             self._json(200, {"status": "ok"})
 
         else:
@@ -82,9 +77,18 @@ class Handler(BaseHTTPRequestHandler):
             url = "https://www.nombrerutyfirma.com/nombre/" + urllib.parse.quote(nombre)
             print(f"Chrome -> {url}")
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-                page    = browser.new_page()
-                page.set_extra_http_headers({"Accept-Language":"es-CL,es;q=0.9"})
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--single-process",
+                    ]
+                )
+                page = browser.new_page()
+                page.set_extra_http_headers({"Accept-Language": "es-CL,es;q=0.9"})
                 page.goto(url, wait_until="networkidle", timeout=25000)
                 html = page.content()
                 browser.close()
@@ -92,35 +96,42 @@ class Handler(BaseHTTPRequestHandler):
             resultados = []
             for fila in re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL|re.IGNORECASE):
                 celdas = re.findall(r'<td[^>]*>(.*?)</td>', fila, re.DOTALL|re.IGNORECASE)
-                celdas = [re.sub(r'\s+',' ',re.sub(r'<[^>]+>','',c)).strip() for c in celdas]
+                celdas = [re.sub(r'\s+',' ', re.sub(r'<[^>]+>','',c)).strip() for c in celdas]
                 celdas = [c for c in celdas if c]
                 if len(celdas) < 2: continue
-                n,r = celdas[0], celdas[1]
-                d   = celdas[2] if len(celdas)>2 else ""
+                n, r = celdas[0], celdas[1]
+                d    = celdas[2] if len(celdas) > 2 else ""
                 if any(k in n.lower() for k in ["nombre","rut","direcci","apellido"]): continue
-                if len(n)<3 or not re.search(r'\d',r): continue
+                if len(n) < 3 or not re.search(r'\d', r): continue
                 resultados.append({"name":n,"rut":r,"address":d,"city":""})
             print(f"Resultados: {len(resultados)}")
             return resultados[:8]
 
     def _norm(self, p):
-        nombre = p.get("name") or " ".join(filter(None,[p.get("firstName",""),p.get("lastName","")])).strip()
-        return {"name":nombre,"rut":p.get("rut",""),"address":p.get("address",""),"city":p.get("city","")}
+        nombre = p.get("name") or " ".join(filter(None,[
+            p.get("firstName",""), p.get("lastName","")
+        ])).strip()
+        return {
+            "name":    nombre,
+            "rut":     p.get("rut","") or "",
+            "address": p.get("address","") or "",
+            "city":    p.get("city","") or "",
+        }
 
     def _json(self, status, data):
         raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
-        self.send_header("Content-Type","application/json; charset=utf-8")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self._cors()
         self.end_headers()
         self.wfile.write(raw)
 
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin","*")
-        self.send_header("Access-Control-Allow-Methods","GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers","Content-Type")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
 
 if __name__ == "__main__":
-    print(f"Servidor iniciando en puerto {PORT}...")
+    print(f"Servidor en puerto {PORT}...")
     HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
