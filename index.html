@@ -1115,73 +1115,57 @@ function exportarPDF(){
 
   const niv={};
   lista.forEach(p=>{const n=REL_NIVEL[p.relacion]??2; if(!niv[n])niv[n]=[]; niv[n].push(p);});
-  const nivsOrdenados=Object.keys(niv).map(Number).sort((a,b)=>a-b);
-  const LABELS={0:'Abuelos',1:'Padres',2:'Principal',3:'Hijos',4:'Nietos'};
+  const LBL={0:'Abuelos',1:'Padres',2:'Principal',3:'Hijos',4:'Nietos'};
 
-  let arbolHTML='';
-  nivsOrdenados.forEach((n,idx)=>{
-    arbolHTML+=`<div style="margin-bottom:4px;font-size:9px;color:#888;text-align:center;letter-spacing:.1em;text-transform:uppercase;">${LABELS[n]||'Nivel '+n}</div>`;
-    arbolHTML+=`<div style="display:flex;justify-content:center;gap:12px;margin-bottom:0;">`;
+  let arbol='';
+  Object.keys(niv).sort().forEach((n,i)=>{
+    arbol+='<div style="margin:' +(i>0?'8':'0')+ 'px 0 4px;font-size:9px;color:#888;text-align:center;letter-spacing:.1em;text-transform:uppercase">'+(LBL[n]||'Nivel '+n)+'</div>';
+    arbol+='<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">';
     niv[n].forEach(p=>{
-      const certs=p.certificados.map(c=>{
-        const color=c.tipo==='nac'?'#1a4a6b':c.tipo==='mat'?'#8b1a1a':'#666';
-        return `<span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;margin:0 1px;"></span>`;
-      }).join('');
-      const border=p.relacion==='raiz'?'2px solid #8b1a1a':'1.5px solid #4a3820';
-      arbolHTML+=`<div style="border:${border};padding:8px 12px;min-width:120px;max-width:160px;text-align:center;background:#f8f4ec;">
-        <div style="font-family:Georgia,serif;font-size:11px;font-weight:bold;margin-bottom:2px;">${p.nombre}</div>
-        <div style="font-family:monospace;font-size:9px;color:#6b4c2a;">${p.rut||'—'}</div>
-        <div style="font-size:9px;color:#b8860b;font-style:italic;">${REL_LABEL[p.relacion]||''}</div>
-        ${p.fnac?`<div style="font-size:8px;color:#888;">Nac: ${p.fnac}</div>`:''}
-        <div style="margin-top:4px;">${certs}</div>
-      </div>`;
+      const brd = p.relacion==='raiz'?'2px solid #8b1a1a':'1px solid #4a3820';
+      arbol+='<div style="border:'+brd+';padding:8px 12px;min-width:120px;text-align:center;background:#f8f4ec;">';
+      arbol+='<div style="font-size:11px;font-weight:bold">'+p.nombre+'</div>';
+      arbol+='<div style="font-size:9px;color:#6b4c2a;font-family:monospace">'+(p.rut||'—')+'</div>';
+      arbol+='<div style="font-size:9px;color:#b8860b;font-style:italic">'+(REL_LABEL[p.relacion]||'')+'</div>';
+      if(p.fnac) arbol+='<div style="font-size:8px;color:#888">Nac: '+p.fnac+'</div>';
+      arbol+='</div>';
     });
-    arbolHTML+=`</div>`;
-    if(idx<nivsOrdenados.length-1) arbolHTML+=`<div style="text-align:center;color:#4a3820;margin:4px 0;">│</div>`;
+    arbol+='</div>';
   });
 
-  // Fichas
-  let fichasHTML='';
+  let fichas='';
   lista.forEach(p=>{
-    const certs=p.certificados.map(c=>`<span style="border:1px solid;padding:1px 5px;margin-right:4px;font-size:9px;">${c.tipo==='nac'?'Nacimiento':c.tipo==='mat'?'Matrimonio':'Defunción'} ${c.fecha}${c.origen==='PDF'?' [PDF]':''}</span>`).join('');
-    fichasHTML+=`<div style="border:1px solid #c9b89a;padding:12px;margin-bottom:10px;background:white;break-inside:avoid;">
-      <div style="font-family:Georgia,serif;font-size:13px;font-weight:bold;border-bottom:1px solid #c9b89a;padding-bottom:5px;margin-bottom:8px;">${p.nombre} <span style="font-size:10px;font-weight:normal;color:#6b4c2a;">${REL_LABEL[p.relacion]||''}</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;color:#3d2b1a;margin-bottom:8px;">
-        <div><strong>RUT:</strong> ${p.rut||'—'}</div>
-        <div><strong>Dirección:</strong> ${p.direccion||'—'}</div>
-        <div><strong>Nacimiento:</strong> ${p.fnac||'—'} ${p.lnac?'· '+p.lnac:''}</div>
-        <div><strong>Defunción:</strong> ${p.fdef||'—'}</div>
-      </div>
-      ${certs?`<div style="margin-bottom:6px;">${certs}</div>`:''}
-      ${p.notas?`<div style="font-size:9px;font-style:italic;color:#6b4c2a;border-top:1px dashed #c9b89a;padding-top:5px;margin-top:5px;">${p.notas}</div>`:''}
-    </div>`;
+    const certs=p.certificados.map(c2=>{
+      const color=c2.tipo==='nac'?'#1a4a6b':c2.tipo==='mat'?'#8b1a1a':'#666';
+      return '<span style="border:1px solid '+color+';padding:1px 5px;margin-right:4px;font-size:9px;color:'+color+'">'+CERT_LABEL[c2.tipo]+' '+c2.fecha+'</span>';
+    }).join('');
+    fichas+='<div style="border:1px solid #c9b89a;padding:12px;margin-bottom:10px;background:white;break-inside:avoid">';
+    fichas+='<div style="font-size:13px;font-weight:bold;border-bottom:1px solid #c9b89a;padding-bottom:4px;margin-bottom:7px">'+p.nombre+' <span style="font-size:10px;font-weight:normal;color:#6b4c2a">'+(REL_LABEL[p.relacion]||'')+'</span></div>';
+    fichas+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px;margin-bottom:7px">';
+    fichas+='<div><b>RUT:</b> '+(p.rut||'—')+'</div><div><b>Dirección:</b> '+(p.direccion||'—')+'</div>';
+    fichas+='<div><b>Nacimiento:</b> '+(p.fnac||'—')+(p.lnac?' · '+p.lnac:'')+'</div>';
+    fichas+='<div><b>Defunción:</b> '+(p.fdef||'—')+'</div></div>';
+    if(certs) fichas+=certs;
+    if(p.notas) fichas+='<div style="margin-top:7px;font-size:9px;font-style:italic;color:#6b4c2a;border-top:1px dashed #c9b89a;padding-top:4px">'+p.notas+'</div>';
+    fichas+='</div>';
   });
+
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Genealogia Notarial</title>'
+    +'<style>body{font-family:Georgia,serif;margin:0;padding:18px;background:#f5efe0;color:#1a1209}'
+    +'h1{font-size:18px;text-align:center}h2{font-size:10px;font-family:monospace;letter-spacing:.16em;'
+    +'text-transform:uppercase;color:#6b4c2a;border-bottom:1px solid #c9b89a;padding-bottom:3px;margin:14px 0 8px}'
+    +'@media print{body{background:white}}</style></head>'
+    +'<body><h1>Registro Genealogico Notarial</h1>'
+    +'<div style="text-align:center;font-size:9px;color:#9a7a5a;margin-bottom:14px">Generado el '
+    +new Date().toLocaleDateString('es-CL')+' · '+lista.length+' persona(s)</div>'
+    +'<h2>Arbol Genealogico</h2>'
+    +'<div style="padding:14px;background:white;border:1px solid #c9b89a;margin-bottom:14px">'+arbol+'</div>'
+    +'<h2>Fichas Personales</h2>'+fichas
+    +'<scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>'
+    +'</body></html>';
 
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Registro Genealógico Notarial</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=EB+Garamond&family=Courier+Prime&display=swap');
-    body{font-family:'EB Garamond',Georgia,serif;margin:0;padding:20px;background:#f5efe0;color:#1a1209;}
-    h1{font-family:'Playfair Display',serif;font-size:18px;text-align:center;margin-bottom:4px;}
-    h2{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#6b4c2a;margin:16px 0 8px;border-bottom:1px solid #c9b89a;padding-bottom:4px;}
-    .subtitle{text-align:center;font-size:10px;color:#6b4c2a;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px;}
-    .date{text-align:center;font-size:9px;color:#9a7a5a;margin-bottom:16px;}
-    @media print{body{background:white;padding:10px;}}
-  </style><script>
-  // URL del backend en Render — se reemplaza automáticamente
-  window.API_BASE = "%%RENDER_URL%%";
-</script>
-</head><body>
-  <h1>Registro Genealógico Notarial</h1>
-  <div class="subtitle">Índice familiar · Certificados · Historia</div>
-  <div class="date">Generado el ${new Date().toLocaleDateString('es-CL')} · ${lista.length} persona(s) registrada(s)</div>
-  <h2>Árbol Genealógico</h2>
-  <div style="padding:16px;background:white;border:1px solid #c9b89a;margin-bottom:16px;">${arbolHTML}</div>
-  <h2>Fichas Personales</h2>
-  ${fichasHTML}
-  <script>window.onload=()=>{window.print();}<\/script>
-  </body></html>`);
+  win.document.write(html);
   win.document.close();
 }
 
