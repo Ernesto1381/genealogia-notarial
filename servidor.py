@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Backend para Genealogia Notarial - Render.com
+Abre el puerto inmediatamente, instala Playwright en segundo plano.
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -17,29 +18,27 @@ RUTIFY_BASE = "https://api.rutificador.live"
 RUTIFY_KEY  = "rutify_sk_test-fsanu9dasniuyfdsanuyfnudyas"
 PORT        = int(os.environ.get("PORT", 8080))
 _pw_lock    = threading.Lock()
+_pw_listo   = threading.Event()  # Se activa cuando Playwright está instalado
 
-# ── Instalar Playwright al arrancar si no existe ──
-def asegurar_playwright():
-    ruta = os.path.expanduser("~/.cache/ms-playwright")
-    ruta2 = "/opt/render/.cache/ms-playwright"
-    existe = (
-        os.path.exists(ruta) and os.listdir(ruta)
-    ) or (
-        os.path.exists(ruta2) and os.listdir(ruta2)
+
+def instalar_playwright():
+    """Corre en segundo plano mientras el servidor ya está escuchando."""
+    print(">>> Instalando Playwright en segundo plano...")
+    env = os.environ.copy()
+    env["PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS"] = "1"
+    result = subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        env=env, capture_output=True, text=True
     )
-    if not existe:
-        print("Instalando Playwright chromium...")
-        env = os.environ.copy()
-        env["PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS"] = "1"
-        subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium"],
-            env=env, check=False
-        )
-        print("Playwright listo.")
+    if result.returncode == 0:
+        print(">>> Playwright listo.")
     else:
-        print("Playwright ya instalado.")
+        print(">>> Error instalando Playwright:", result.stderr[-500:])
+    _pw_listo.set()  # Marcar como listo aunque haya fallado
 
-asegurar_playwright()
+
+# Iniciar instalación en hilo separado
+threading.Thread(target=instalar_playwright, daemon=True).start()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -53,7 +52,19 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+
+        if self.path.split("?")[0] == "/health":
+            self._json(200, {
+                "status": "ok",
+                "playwright": "listo" if _pw_listo.is_set() else "instalando..."
+            })
+            return
+
         if self.path.startswith("/api/buscar-nombre"):
+            # Esperar hasta 120s a que Playwright esté listo
+            if not _pw_listo.wait(timeout=120):
+                self._json(503, {"error": "Playwright aún instalándose, intenta en 30 segundos"})
+                return
             params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             name   = params.get("name", [""])[0].strip()
             print(f"Buscando nombre: {name}")
@@ -61,7 +72,7 @@ class Handler(BaseHTTPRequestHandler):
                 data = self._playwright_nombre(name)
                 self._json(200, data)
             except Exception as e:
-                print(f"Error playwright: {e}")
+                print(f"Error: {e}")
                 self._json(500, {"error": str(e)})
 
         elif self.path.startswith("/api/buscar-rut"):
@@ -88,9 +99,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(e.code, {"error": e.read().decode()})
             except Exception as e:
                 self._json(500, {"error": str(e)})
-
-        elif self.path.split("?")[0] == "/health":
-            self._json(200, {"status": "ok"})
 
         else:
             self.send_response(404)
@@ -158,5 +166,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"Servidor en puerto {PORT}...")
-    HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+    print(f">>> Servidor abriendo puerto {PORT}...")
+    server = HTTPServer(("0.0.0.0", PORT), Handler)
+    print(f">>> Puerto {PORT} abierto. Listo para recibir requests.")
+    server.serve_forever()
