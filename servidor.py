@@ -10,11 +10,36 @@ import json
 import os
 import re
 import threading
+import subprocess
+import sys
 
 RUTIFY_BASE = "https://api.rutificador.live"
 RUTIFY_KEY  = "rutify_sk_test-fsanu9dasniuyfdsanuyfnudyas"
 PORT        = int(os.environ.get("PORT", 8080))
 _pw_lock    = threading.Lock()
+
+# ── Instalar Playwright al arrancar si no existe ──
+def asegurar_playwright():
+    ruta = os.path.expanduser("~/.cache/ms-playwright")
+    ruta2 = "/opt/render/.cache/ms-playwright"
+    existe = (
+        os.path.exists(ruta) and os.listdir(ruta)
+    ) or (
+        os.path.exists(ruta2) and os.listdir(ruta2)
+    )
+    if not existe:
+        print("Instalando Playwright chromium...")
+        env = os.environ.copy()
+        env["PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS"] = "1"
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            env=env, check=False
+        )
+        print("Playwright listo.")
+    else:
+        print("Playwright ya instalado.")
+
+asegurar_playwright()
 
 
 class Handler(BaseHTTPRequestHandler):
